@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { decoder } from "../../src/tar/utils";
 import { packTar, unpackTar } from "../../src/web";
-import { decoder } from "../../src/web/utils";
 
 describe("unpack options", () => {
 	// Helper function to create test archive
@@ -974,7 +974,7 @@ describe("unpack options", () => {
 			expect(entries.some((e) => e.header.name.includes("file2"))).toBe(true);
 		});
 
-		it.skip("handles map functions that throw errors", async () => {
+		it("handles map functions that throw errors", async () => {
 			const archive = await createTestArchive();
 
 			await expect(
@@ -989,7 +989,7 @@ describe("unpack options", () => {
 			).rejects.toThrow("Map function error");
 		});
 
-		it.skip("handles filter functions that throw errors", async () => {
+		it("handles filter functions that throw errors", async () => {
 			const archive = await createTestArchive();
 
 			await expect(
