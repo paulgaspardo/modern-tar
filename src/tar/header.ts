@@ -6,8 +6,6 @@ import {
 	DEFAULT_FILE_MODE,
 	FLAGTYPE,
 	TYPEFLAG,
-	USTAR_CHECKSUM_OFFSET,
-	USTAR_CHECKSUM_SIZE,
 	USTAR_GID_OFFSET,
 	USTAR_GID_SIZE,
 	USTAR_GNAME_OFFSET,
@@ -47,11 +45,9 @@ import {
 	writeString,
 } from "./utils";
 
-//Internal header with additional fields needed during parsing.
+// Internal header with additional fields needed during parsing.
 export interface InternalTarHeader extends TarHeader {
-	checksum: number;
-	magic: string;
-	prefix: string;
+	prefix?: string;
 }
 
 // Header overrides for PAX extensions.
@@ -141,12 +137,7 @@ export function parseUstarHeader(
 		USTAR_TYPEFLAG_SIZE,
 	) as keyof typeof FLAGTYPE;
 
-	const magic = readString(block, USTAR_MAGIC_OFFSET, USTAR_MAGIC_SIZE);
-	if (strict && magic !== "ustar") {
-		throw new Error(`Invalid USTAR magic: expected "ustar", got "${magic}"`);
-	}
-
-	return {
+	const header: InternalTarHeader = {
 		name: readString(block, USTAR_NAME_OFFSET, USTAR_NAME_SIZE),
 		mode: readOctal(block, USTAR_MODE_OFFSET, USTAR_MODE_SIZE),
 		uid: readNumeric(block, USTAR_UID_OFFSET, USTAR_UID_SIZE),
@@ -155,14 +146,24 @@ export function parseUstarHeader(
 		mtime: new Date(
 			readNumeric(block, USTAR_MTIME_OFFSET, USTAR_MTIME_SIZE) * 1000,
 		),
-		checksum: readOctal(block, USTAR_CHECKSUM_OFFSET, USTAR_CHECKSUM_SIZE),
 		type: FLAGTYPE[typeflag] || "file",
 		linkname: readString(block, USTAR_LINKNAME_OFFSET, USTAR_LINKNAME_SIZE),
-		magic,
-		uname: readString(block, USTAR_UNAME_OFFSET, USTAR_UNAME_SIZE),
-		gname: readString(block, USTAR_GNAME_OFFSET, USTAR_GNAME_SIZE),
-		prefix: readString(block, USTAR_PREFIX_OFFSET, USTAR_PREFIX_SIZE),
 	};
+
+	const magic = readString(block, USTAR_MAGIC_OFFSET, USTAR_MAGIC_SIZE);
+
+	// Both GNU and USTAR formats have uname and gname.
+	if (magic.trim() === "ustar") {
+		header.uname = readString(block, USTAR_UNAME_OFFSET, USTAR_UNAME_SIZE);
+		header.gname = readString(block, USTAR_GNAME_OFFSET, USTAR_GNAME_SIZE);
+	}
+
+	// Only standard USTAR (not GNU tar) has valid prefix field for pathnames.
+	// GNU tar uses "ustar  " and repurposes prefix for timestamp metadata.
+	if (magic === "ustar")
+		header.prefix = readString(block, USTAR_PREFIX_OFFSET, USTAR_PREFIX_SIZE);
+
+	return header;
 }
 
 // Parses PAX record data into an overrides object.
@@ -274,9 +275,7 @@ export function getHeaderBlocks(header: TarHeader): Uint8Array[] {
 	const pax = generatePax(header);
 
 	// Skip PAX if not needed.
-	if (!pax) {
-		return [base];
-	}
+	if (!pax) return [base];
 
 	// Calculate padding for the PAX body.
 	const paxPadding = -pax.paxBody.length & BLOCK_SIZE_MASK;
