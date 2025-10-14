@@ -258,12 +258,6 @@ function createFSHandler(directoryPath: string, options: UnpackOptionsFS) {
 							if (maxDepth !== Infinity && name.split("/").length > maxDepth)
 								throw new Error("Tar exceeds max specified depth.");
 
-							// Prevent absolute paths and ensure within destDir.
-							if (path.isAbsolute(name))
-								throw new Error(
-									`Absolute path found in "${transformed.name}".`,
-								);
-
 							const outPath = path.join(destDir.symbolic, name);
 							validateBounds(
 								outPath,
