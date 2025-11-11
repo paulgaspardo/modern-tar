@@ -35,7 +35,7 @@ export function createTarUnpacker(
 	let totalAvailable = 0;
 
 	let state: State = STATE_HEADER;
-	let waitingForData = false;
+	let waitingForData = true;
 
 	let currentEntry: {
 		remaining: number;
